@@ -1,39 +1,28 @@
 -module(geodata2_sup).
 -behaviour(supervisor).
 
--export([start_link/0, stop_child/1, start_child/2]).
+-export([start_link/0]).
 -export([init/1]).
+-include("geodata2.hrl").
 
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-
-start_child(Name, File) ->
-	supervisor:start_child(geodata2_sup, child_spec(Name, File)).
-
-stop_child(Name) ->
-	supervisor:terminate_child(geodata2_sup, Name).
-
 init([]) ->
-	Bases = case application:get_env(geodata2, bases) of
-				undefined -> [];
-				{ok, V} -> V
-			end,
+    case application:get_env(geodata2, dbfile) of
+        {ok, File} ->
+            {ok, Data} = file:read_file(File),
+            {ok, Meta} = geodata2_format:meta(Data),
+            ets:new(?GEODATA2_STATE_TID, [set, protected, named_table, {read_concurrency, true}]),
+            ets:insert(?GEODATA2_STATE_TID, {data, Data}),
+            ets:insert(?GEODATA2_STATE_TID, {meta, Meta}),
 
-	BasesSpec = [child_spec(N, F) ||{N, F} <- Bases],
+            RestartStrategy = one_for_one,
+            MaxRestarts = 5,
+            MaxSecondsBetweenRestarts = 60,
+            SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
+            {ok, {SupFlags}};
+        _ ->
+            {error, {geodata2_dbfile_unspecified}}
+    end.
 
-	RestartStrategy = one_for_one,
-	MaxRestarts = 1,
-	MaxSecondsBetweenRestarts = 1,
-
-	SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
-	{ok, {SupFlags, BasesSpec}}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-
-child_spec(Name, File) when is_atom(Name)->
-	{Name, {geodata2_poolsup, start_link, [Name, File]},
-		temporary, 2000, supervisor, [geodata2_poolsup]}.

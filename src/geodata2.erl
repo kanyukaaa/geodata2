@@ -30,15 +30,23 @@ start_link(Name) ->
 stop() ->
 	application:stop(geodata2).
 
-init(_Args) ->
-    case application:get_env(geodata2, dbfile) of
-        {ok, File} ->
+new(File) ->
+    case filelib:is_file(File) of
+        true ->
             {ok, Data} = file:read_file(File),
             {ok, Meta} = geodata2_format:meta(Data),
             ets:new(?GEODATA2_STATE_TID, [set, protected, named_table, {read_concurrency, true}]),
             ets:insert(?GEODATA2_STATE_TID, {data, Data}),
             ets:insert(?GEODATA2_STATE_TID, {meta, Meta}),
             {ok, #state{}};
+        _ ->
+            {stop, {geodata2_dbfile_not_found, File}}
+    end.
+
+init(_Args) ->
+    case application:get_env(geodata2, dbfile) of
+        {ok, File} ->
+            new(File);
         _ ->
             {stop, {geodata2_dbfile_unspecified}}
     end.

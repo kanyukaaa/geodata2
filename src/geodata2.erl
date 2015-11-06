@@ -5,7 +5,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% API
--export([lookup/1, start/0, start_link/1, stop/0]).
+-export([lookup/1, start/0, start_link/1, stop/0, get_env/2, id/1]).
 -include("geodata2.hrl").
 
 -record(state, {}).
@@ -44,7 +44,7 @@ new(File) ->
     end.
 
 init(_Args) ->
-    case application:get_env(geodata2, dbfile) of
+    case get_env(geodata2, dbfile) of
         {ok, File} ->
             new(File);
         _ ->
@@ -69,3 +69,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+get_env(App, Key) ->
+    {ConfigModule, ConfigFun} = case application:get_env(geodata2, config_interp) of
+                                    {ok, {Cm, Cf}} -> {Cm, Cf};
+                                    _              -> {?MODULE, id}
+                                end,
+    case application:get_env(App, Key) of
+        {ok, Value} ->
+            {ok, ConfigModule:ConfigFun(Value)};
+        Other ->
+            Other
+    end.
+
+id(X) ->
+    X.

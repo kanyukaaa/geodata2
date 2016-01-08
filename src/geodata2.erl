@@ -17,8 +17,8 @@ lookup(IP) ->
     case geodata2_ip:make_ip(IP) of
         {ok, Bits, IPV} ->
             geodata2_format:lookup(Meta, Data, Bits, IPV);
-        {error, format} ->
-            {error, format}
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 start() ->

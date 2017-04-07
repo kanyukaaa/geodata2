@@ -5,7 +5,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% API
--export([lookup/1, start/0, start_link/1, stop/0, get_env/2, id/1]).
+-export([lookup/1, start/0, start_link/1, stop/0, get_env/2]).
 -include("geodata2.hrl").
 
 -record(state, {}).
@@ -33,7 +33,13 @@ stop() ->
 new(File) ->
     case filelib:is_file(File) of
         true ->
-            {ok, Data} = file:read_file(File),
+            {ok, RawData} = file:read_file(File),
+            Data = case is_compressed(File) of
+                       true ->
+                           zlib:gunzip(RawData);
+                       false ->
+                           RawData
+                   end,
             {ok, Meta} = geodata2_format:meta(Data),
             ets:new(?GEODATA2_STATE_TID, [set, protected, named_table, {read_concurrency, true}]),
             ets:insert(?GEODATA2_STATE_TID, {data, Data}),
@@ -82,5 +88,11 @@ get_env(App, Key) ->
             Other
     end.
 
-id(X) ->
-    X.
+
+is_compressed(Filename) ->
+    case lists:reverse(binary:split(iolist_to_binary(Filename), <<".">>, [global])) of
+        [<<"gz">> | _] ->
+            true;
+        _ ->
+            false
+    end.

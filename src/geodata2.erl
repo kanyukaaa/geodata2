@@ -92,9 +92,4 @@ get_env(App, Key) ->
 id(X) -> X.
 
 is_compressed(Filename) ->
-    case lists:reverse(binary:split(iolist_to_binary(Filename), <<".">>, [global])) of
-        [<<"gz">> | _] ->
-            true;
-        _ ->
-            false
-    end.
+    <<".gz">> == iolist_to_binary(filename:extension(Filename)).

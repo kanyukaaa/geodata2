@@ -5,7 +5,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% API
--export([lookup/1, start/0, start_link/1, stop/0, get_env/2]).
+-export([lookup/1, start/0, start_link/1, stop/0, get_env/2, id/1]).
 -include("geodata2.hrl").
 
 -record(state, {}).
@@ -88,6 +88,8 @@ get_env(App, Key) ->
             Other
     end.
 
+%% this is used to return app env values as-is when config_interp is not set:
+id(X) -> X.
 
 is_compressed(Filename) ->
     case lists:reverse(binary:split(iolist_to_binary(Filename), <<".">>, [global])) of

@@ -29,26 +29,23 @@ meta(Data) ->
 	make_meta(Data, Meta).
 
 make_meta(Data, Meta) ->
-	IPVersion = proplists:get_value(<<"ip_version">>, Meta),
-	RecordSize = proplists:get_value(<<"record_size">>, Meta),
-	NodeCount = proplists:get_value(<<"node_count">>, Meta),
-	Descr = case proplists:get_value(<<"description">>, Meta, []) of
-				[] -> <<"Unknown">>;
-				DescrMap ->
-					case proplists:get_value(<<"en">>, DescrMap) of
-						undefined ->
-							[{_, Val} | _Rest] = DescrMap,
+	#{
+		<<"binary_format_major_version">> := MajorVsn,
+		<<"binary_format_minor_version">> := MinorVsn,
+		<<"ip_version">> := IPVersion,
+		<<"record_size">> := RecordSize,
+		<<"node_count">> := NodeCount,
+		<<"database_type">> := DBType,
+		<<"build_epoch">> := BuildEpoch
+	} = Meta,
+	Descr = case Meta of
+						#{<<"description">> := #{<<"en">> := Val}} ->
 							Val;
-						Val -> Val
-					end
-			end,
-	Languages = proplists:get_value(<<"languages">>, Meta, []),
-	DBType = proplists:get_value(<<"database_type">>, Meta),
-	Timestamp = calendar:gregorian_seconds_to_datetime(62167219200 + proplists:get_value(<<"build_epoch">>, Meta)), %%{{1970,1,1},{0,0,0}} + epoch,
-	Vsn = {
-		proplists:get_value(<<"binary_format_major_version">>, Meta),
-		proplists:get_value(<<"binary_format_minor_version">>, Meta)
-	},
+						_ ->
+							<<"Unknown">>
+					end,
+	Languages = maps:get(<<"languages">>, Meta, #{}),
+	Timestamp = calendar:gregorian_seconds_to_datetime(62167219200 + BuildEpoch), %%{{1970,1,1},{0,0,0}} + epoch,
 	true = (IPVersion == ?IPV6) orelse (IPVersion == ?IPV4),
 	true = RecordSize =/= undefined,
 	true = NodeCount =/= undefined,
@@ -63,7 +60,7 @@ make_meta(Data, Meta) ->
 		languages = Languages,
 		database_type = DBType,
 		timestamp = Timestamp,
-		vsn = Vsn,
+		vsn = {MajorVsn, MinorVsn},
 		whole = RecordSize div 8 * 8, %%bits
 		remdr = RecordSize rem 8, %% bits
 		tree_size = TreeSize, %%bytes
@@ -191,7 +188,7 @@ parse_sz(_MD, ?GEO_SIGNEDINT32, Bytes, Segment) ->
 	{Val, Rest};
 
 parse_sz(MD, ?GEO_MAP, Size, Segment) ->
-	parse_map(MD, Segment, Size, []);
+	parse_map(MD, Segment, Size, #{});
 
 parse_sz(MD, ?EX_GEO_ARRAY, Size, Segment) ->
 	parse_array(MD, Segment, Size, []);
@@ -229,4 +226,4 @@ parse_map(_MD, Segment, 0, Acc) ->
 parse_map(MD, Segment, N, Acc) ->
 	{Key, Rest1} = parse(MD, Segment),
 	{Val, Rest2} = parse(MD, Rest1),
-	parse_map(MD, Rest2, N - 1, [{Key, Val} | Acc]).
+	parse_map(MD, Rest2, N - 1, Acc#{Key => Val}).
